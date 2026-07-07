@@ -80,7 +80,7 @@ Heads up — overlapping tasks:
 (Trimmed slightly — main.py also prints the unsorted list and the per-pet /
 per-status filtered views.)
 
-## 🧪 Testing PawPal+
+## Testing PawPal+
 
 Run the full test suite with:
 
@@ -94,7 +94,7 @@ care planner:
 - Sorting correctness — tasks entered out of order are returned in
   chronological order, ties on equal times keep insertion order, and an empty
   schedule is handled gracefully.
-- Recurrence logic — completing a daily/`weekly` task spawns a fresh,
+- Recurrence logic — completing a daily/weekly task spawns a fresh,
   not-yet-done copy for its next occurrence (same time = "the next day's run"),
   while monthly tasks stay one-off and completing twice never double-spawns.
 - Conflict detection — overlapping time windows are flagged (including two
@@ -116,6 +116,49 @@ $ python -m pytest -q
 ....................................................                     [100%]
 52 passed in 0.02s
 ```
+
+Confidence Level: 3.5 stars
+
+## ✨ Features
+
+- **Sorting by time of day** — `sort_by_time()` orders tasks chronologically by
+  their zero-padded `"HH:MM"` string (so text order = clock order), using a
+  stable sort that preserves insertion order on ties. Non-destructive: it
+  returns a new list and leaves the input untouched. `daily_schedule()` is the
+  whole-day view built on top of it.
+- **Aggregation across pets** — `Owner.all_tasks()` flattens every pet's task
+  list into one collection, so the scheduler plans the owner's whole day rather
+  than one pet at a time.
+- **Multi-criteria filtering** — `filter_tasks(pet, pet_name, completed,
+  frequency)` filters by pet (object *or* name), completion status, and/or
+  frequency in any combination, always returned time-ordered. `pending_tasks()`
+  and `completed_tasks()` are convenience views.
+- **Priority + time-budget planning (greedy)** — `build_plan()` sorts pending
+  tasks by priority rank (high → medium → low, ties broken by earlier time) and
+  greedily selects those that fit the owner's `available_minutes`, tracking both
+  chosen and skipped tasks. Priority is ranked numerically (`PRIORITY_RANK`) so
+  it sorts by importance, not alphabetically.
+- **Conflict detection (interval overlap)** — `find_conflicts()` compares task
+  time windows (`start_dt`/`end_dt` via `datetime`/`timedelta`) and flags any
+  overlap, including two tasks at the same time. Touching edges (one ends as the
+  next begins) don't count. It scans in sorted order with an early exit once no
+  later task can overlap. `same_pet_conflicts()` / `cross_pet_conflicts()`
+  classify each clash (one pet can't do two things; the owner can't be two
+  places at once).
+- **Crash-proof conflict warnings** — `conflict_warning()` returns a
+  human-readable message (all-clear note or a bullet list of overlaps) and
+  isolates unparseable times into their own warning line instead of raising, so
+  one bad entry never takes down the check. Surfaced live in the Streamlit UI.
+- **Daily/weekly recurrence** — completing a `daily` or `weekly` task
+  (`mark_complete()` → `next_occurrence()`) automatically spawns a fresh,
+  not-yet-done copy on the same pet for its next run. `monthly` is treated as
+  one-off, and completing an already-done task is a no-op (no double-spawn).
+- **Time-window math with rollover** — `end_time()` adds duration with
+  `timedelta`, correctly crossing the hour and midnight boundaries (e.g. 23:30 +
+  60m → 00:30), and validates input so a bad time like `"25:00"` is rejected.
+- **Plan explanation & summary** — `explain()` reports what was scheduled, what
+  was skipped and why, plus any conflicts; `summary()` gives a done/total status
+  line across all pets.
 
 ## 📐 Smarter Scheduling
 
@@ -143,11 +186,10 @@ each feature and the method that implements it.
 Describe your app in numbered steps so a reader can follow along without watching a video:
 
 1. <!-- Describe this step -->
+
 2. <!-- Describe this step -->
 3. <!-- Describe this step -->
 4. <!-- Describe this step -->
 5. <!-- Add more steps as needed -->
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
-
-## Testting PawPal+

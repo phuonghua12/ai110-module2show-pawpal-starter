@@ -79,13 +79,13 @@ Checking overlapping durations rather than exact start times is the honest model
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)? I used AI tools during this project for all design brainstorming, debugging, refactoring.
+- What kinds of prompts or questions were most helpful? I find out that the "How" type of questions were the most useful and also most of the debug code prompts.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+- Describe one moment where you did not accept an AI suggestion as-is. The moment that I did not accept was when AI suggested that I should overwrite some functions because it already appear somewhere else.
+- How did you evaluate or verify what the AI suggested? I chose to delete it to keep the code cleaner instead.
 
 ---
 
@@ -93,26 +93,24 @@ Checking overlapping durations rather than exact start times is the honest model
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
-
+- What behaviors did you test? I wrote 52 tests covering sorting, adding up tasks accross pets, building the plan, filtering, reccuring tasks, conflict, and time math.
+- Why were these tests important? I think these tests were important because if one quietly broke, the app would give wrong plans with no error to warn
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
-
+- How confident are you that your scheduler works correctly? 3.5
+- What edge cases would you test next if you had more time? I would test very large or many tasks. I'd add more tasks than can fit in a day to make sure the planner still picks the right ones and stays fast.
 ---
 
 ## 5. Reflection
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+- What part of this project are you most satisfied with? Testing
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+- If you had another iteration, what would you improve or redesign? I would improve more on the methods like keep it simpler and cleaner.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+- What is one important thing you learned about designing systems or working with AI on this project? I learned about how important we draft our prompt effect the outcome of AI.

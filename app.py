@@ -45,6 +45,11 @@ if "owner" not in st.session_state:
     st.session_state.owner = Owner("Jordan")
 owner = st.session_state.owner
 
+# The Scheduler reads through to the owner's pets/tasks live, so a single
+# instance built each rerun powers every display section below (sorting,
+# conflict checks, and the plan) — no hand-rolled sorting in the UI.
+scheduler = Scheduler(owner)
+
 # --- owner details ----------------------------------------------------------
 st.subheader("Owner")
 owner.name = st.text_input("Owner name", value=owner.name)
@@ -107,23 +112,32 @@ else:
     st.caption("Add a pet first, then you can give it tasks.")
 
 # --- show all tasks across pets, ordered by time ----------------------------
+# Let the Scheduler do the ordering (sort_by_time) instead of sorting by hand.
+ordered_tasks = scheduler.sort_by_time()
 rows = [
     {
         "time": t.time,
-        "pet": pet.name,
+        "pet": t.pet.name if t.pet else "?",
         "task": t.description,
         "min": t.duration_minutes,
         "priority": t.priority,
         "frequency": t.frequency,
         "done": t.completed,
     }
-    for pet in owner.pets
-    for t in pet.tasks
+    for t in ordered_tasks
 ]
-rows.sort(key=lambda r: r["time"])
 if rows:
     st.write("All tasks (by time):")
     st.table(rows)
+
+    # Live conflict check — conflict_warning() returns a safe, human-readable
+    # message (an all-clear note or the overlaps found) and never crashes on
+    # bad time data, so it's safe to show on every rerun.
+    warning = scheduler.conflict_warning()
+    if warning.startswith("✅"):
+        st.success(warning)
+    else:
+        st.warning(warning)
 
 st.divider()
 
@@ -133,7 +147,6 @@ if st.button("Generate schedule"):
     if not owner.all_tasks():
         st.warning("No tasks to schedule yet. Add a pet and some tasks first.")
     else:
-        scheduler = Scheduler(owner)
         scheduler.build_plan()  # uses owner.available_minutes
         st.text(scheduler.explain())
         st.caption(scheduler.summary())
