@@ -65,6 +65,14 @@ It uses a greedy, priority-first strategy rather than trying to maximize the num
 
 For pet care, doing the important things (a walk, medication) matters more than squeezing in the most tasks. A greedy priority-first plan is also simple to understand and explain to the owner, which fits the goal of the app explaining *why* it chose the plan. A "maximize tasks" approach (a knapsack solve) would be more optimal but harder to justify and overkill for a daily care list.
 
+- A second tradeoff: conflict detection *warns* but does not *resolve*.
+
+The scheduler detects when two tasks clash in time, but it does not act on that — it flags the conflict and still schedules both tasks. `find_conflicts()` compares full time windows (start + duration, computed with `timedelta`), so it catches partial overlaps like an 08:00–08:30 walk against an 08:15 vet call, not just tasks that start at the exact same minute. It classifies each clash as same-pet (the pet can't do both) or cross-pet (the owner can't be in two places), and `build_plan()`/`explain()` surface those warnings — but the plan still contains both conflicting tasks. So the *detection* is richer than an exact-time-match check, while the *response* stays deliberately hands-off.
+
+- Why is that tradeoff reasonable for this scenario?
+
+Checking overlapping durations rather than exact start times is the honest model of the constraint: real clashes are usually partial (a walk running into a feeding), and exact-match checking would silently miss them. But auto-resolving a conflict means *deciding for the owner* — bumping a task's time, dropping the lower-priority one, or shortening it — and any of those could move a medication dose or skip a walk without consent. For a care assistant, surfacing "these two overlap, your call" is safer and more transparent than a resolution the owner didn't ask for. It also keeps the planner's one job (fit tasks to the time budget by priority) separate from time-of-day conflicts, which are a different concern. Auto-resolution would be a reasonable next iteration, but only as an explicit, explained suggestion.
+
 ---
 
 ## 3. AI Collaboration
