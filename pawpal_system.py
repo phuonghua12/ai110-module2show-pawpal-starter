@@ -6,7 +6,12 @@ Scheduler holds the logic and the resulting schedule. Scheduler method
 bodies are empty stubs — no logic yet.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+# Numeric rank for each priority so tasks can be sorted correctly.
+# (Sorting the raw strings would order them alphabetically:
+#  "high" < "low" < "medium", which is wrong.)
+PRIORITY_RANK = {"high": 3, "medium": 2, "low": 1}
 
 
 @dataclass
@@ -15,6 +20,7 @@ class Owner:
 
     name: str
     available_minutes: int
+    pets: list = field(default_factory=list)  # list[Pet] this owner cares for
 
 
 @dataclass
@@ -39,10 +45,11 @@ class Scheduler:
 
     def __init__(self):
         self.scheduled_tasks = []  # list[Task] chosen for the day, in order
+        self.skipped_tasks = []    # list[Task] left out (didn't fit) — used by explain()
         self.total_minutes = 0     # total time the schedule uses
 
-    def build_plan(self, tasks, available_minutes):
-        """Choose and order tasks that fit within available_minutes."""
+    def build_plan(self, owner, tasks):
+        """Choose and order tasks that fit within owner.available_minutes."""
         pass
 
     def explain(self):
@@ -50,7 +57,7 @@ class Scheduler:
         pass
 
     def _sort_tasks(self, tasks):
-        """Order tasks (e.g. by priority, then duration). Helper for build_plan."""
+        """Order tasks by priority (via PRIORITY_RANK), then duration. Helper for build_plan."""
         pass
 
     def _fits(self, task, remaining):

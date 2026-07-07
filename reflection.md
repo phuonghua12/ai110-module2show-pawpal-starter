@@ -19,14 +19,19 @@ The key decision was splitting "data" classes (Owner, Pet, Task) from a "behavio
 
 **b. Design changes**
 
-<!-- Fill this in AFTER you implement the code — it asks about changes that happened during implementation.
-     Watch for these while you build, and record whichever actually happens:
-     - Did the scheduled start time end up on Task, or on a separate slot inside Plan?
-     - Did priority stay a string, or did you switch it to an Enum for cleaner sorting?
-     - Did you add/merge/remove any class once you started writing the scheduling logic? -->
-
 - Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+
+Yes. Reviewing the skeleton against my design surfaced a few gaps, and I made these changes:
+
+- Added a `pets` list to `Owner`. My UML said an owner "owns" pets, but the code had no field for it, so the relationship only existed on the diagram. I added `pets: list[Pet]` so the code actually models the relationship.
+
+- Added a `skipped_tasks` list to `Scheduler`. My original `Scheduler` only stored the tasks it chose, but `explain()` needs to say *why* a task was left out ("skipped grooming — no time left"). Without keeping the rejected tasks I couldn't explain the tradeoffs, so I added `skipped_tasks` alongside `scheduled_tasks`.
+
+- Added a `PRIORITY_RANK` map. `priority` is a string ("low"/"medium"/"high"), and sorting those strings directly orders them alphabetically (high < low < medium), which is wrong. I added `PRIORITY_RANK = {"high": 3, "medium": 2, "low": 1}` so `_sort_tasks` can sort by importance instead of by spelling.
+
+- Changed `build_plan(tasks, available_minutes)` to `build_plan(owner, tasks)`. The time budget is really the owner's constraint, so passing the `Owner` keeps the constraint attached to the object that owns it instead of relying on a loose number matching up.
+
+Still open by choice: tasks are not yet linked to a specific `Pet` (single-pet assumption for now), and there are no per-task clock start times.
 
 ---
 
