@@ -77,25 +77,44 @@ Heads up — overlapping tasks:
 1/7 task(s) completed across 2 pet(s)
 ```
 
-(Trimmed slightly — `main.py` also prints the unsorted list and the per-pet /
+(Trimmed slightly — main.py also prints the unsorted list and the per-pet /
 per-status filtered views.)
 
 ## 🧪 Testing PawPal+
 
+Run the full test suite with:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+The suite (`test_pawpal_system.py`) covers the behaviors that matter most for a
+care planner:
+
+- Sorting correctness — tasks entered out of order are returned in
+  chronological order, ties on equal times keep insertion order, and an empty
+  schedule is handled gracefully.
+- Recurrence logic — completing a daily/`weekly` task spawns a fresh,
+  not-yet-done copy for its next occurrence (same time = "the next day's run"),
+  while monthly tasks stay one-off and completing twice never double-spawns.
+- Conflict detection — overlapping time windows are flagged (including two
+  tasks at the same time), classified as same-pet vs cross-pet, and reported
+  through a conflict_warning() that never crashes on bad time data. A
+  three-way-overlap test guards the early-exit optimization, and a spawned next
+  occurrence is checked not to clash with the task that created it.
+- Aggregation, filtering & planning — tasks flatten across pets, filter by
+  pet/status/frequency, and build_plan() respects the owner's time budget
+  while preferring higher-priority tasks; explain() reports what was
+  scheduled, skipped, and any conflicts.
+- Time-window math — "HH:MM" parsing plus duration handles hour and
+  midnight rollover, and rejects invalid times like "25:00".
+
+Successful run:
 
 ```
-$ pytest -q
-...........................................                              [100%]
-43 passed in 0.02s
+$ python -m pytest -q
+....................................................                     [100%]
+52 passed in 0.02s
 ```
 
 ## 📐 Smarter Scheduling
@@ -106,18 +125,18 @@ each feature and the method that implements it.
 
 | Feature | Method(s) | What it does |
 |---------|-----------|--------------|
-| Sorting by time | `Scheduler.sort_by_time()`, `Scheduler.daily_schedule()` | Orders tasks chronologically by their `time`. `sort_by_time()` sorts all tasks (or an optional subset) non-destructively; `daily_schedule()` is the whole-day view built on it. |
-| Filtering | `Scheduler.filter_tasks(pet, pet_name, completed, frequency)` | One method that filters by pet (object *or* name), completion status, and/or frequency in any combination — e.g. `filter_tasks(pet_name="Luna", completed=False)`. Convenience views `pending_tasks()` and `completed_tasks()` filter by status. |
-| Conflict detection | `Scheduler.find_conflicts()`, `same_pet_conflicts()`, `cross_pet_conflicts()`, `describe_conflict()`, `conflict_warning()` | Detects tasks whose time windows overlap (not just exact start times) using `Task.start_dt()`/`end_dt()`. Classifies each clash as same-pet vs cross-pet, and `conflict_warning()` returns a safe, human-readable message that never crashes on bad time data. |
-| Recurring tasks | `Task.mark_complete()`, `Task.next_occurrence()` | Completing a `daily`/`weekly` task automatically spawns a fresh, not-yet-done copy for its next occurrence on the same pet. `monthly` is treated as one-off. Frequency is also filterable via `filter_tasks(frequency=...)`. |
-| Time-window math (supporting) | `Task.start_dt()`, `end_dt()`, `end_time()`, `overlaps()` | Parse `"HH:MM"` and add duration with `datetime`/`timedelta` — handles hour and midnight rollover, and validates input (a bad time like `"25:00"` raises `ValueError`). |
-| Planning (constraints) | `Scheduler.build_plan()`, `explain()` | Greedily selects pending tasks that fit the owner's time budget, highest priority first (ties broken by earlier time). `explain()` reports what was scheduled, what was skipped, and any conflicts. |
+| Sorting by time | Scheduler.sort_by_time(), Scheduler.daily_schedule() | Orders tasks chronologically by their time. sort_by_time() sorts all tasks (or an optional subset) non-destructively; daily_schedule() is the whole-day view built on it. |
+| Filtering | Scheduler.filter_tasks(pet, pet_name, completed, frequency) | One method that filters by pet (object *or* name), completion status, and/or frequency in any combination — e.g. filter_tasks(pet_name="Luna", completed=False). Convenience views `pending_tasks() and completed_tasks() filter by status. |
+| Conflict detection | Scheduler.find_conflicts(), same_pet_conflicts(), cross_pet_conflicts(), describe_conflict(), conflict_warning() | Detects tasks whose time windows overlap (not just exact start times) using Task.start_dt()/end_dt(). Classifies each clash as same-pet vs cross-pet, and conflict_warning() returns a safe, human-readable message that never crashes on bad time data. |
+| Recurring tasks | `Task.mark_complete(), Task.next_occurrence() | Completing a daily/weekly task automatically spawns a fresh, not-yet-done copy for its next occurrence on the same pet. monthly is treated as one-off. Frequency is also filterable via filter_tasks(frequency=...). |
+| Time-window math (supporting) | Task.start_dt(), end_dt(), end_time(), overlaps() | Parse "HH:MM" and add duration with datetime/timedelta — handles hour and midnight rollover, and validates input (a bad time like "25:00" raises ValueError). |
+| Planning (constraints) | Scheduler.build_plan(), explain() | Greedily selects pending tasks that fit the owner's time budget, highest priority first (ties broken by earlier time). explain() reports what was scheduled, what was skipped, and any conflicts. |
 
 ### Notes on behavior
 
-- Conflict detection detects but does not resolve. Overlapping tasks are flagged (in `explain()` and the UI) but both are still scheduled — the owner decides. 
+- Conflict detection detects but does not resolve. Overlapping tasks are flagged (in explain() and the UI) but both are still scheduled — the owner decides. 
 - Only pending tasks are checked for conflicts. A completed task isn't competing for time, which also prevents a recurring task from "clashing" with the next occurrence it just spawned.
-- No calendar dates. Tasks carry a time-of-day but no date, so a spawned next occurrence reuses the same `HH:MM` and represents "the next day/week's run."
+- No calendar dates. Tasks carry a time-of-day but no date, so a spawned next occurrence reuses the same HH:MM and represents "the next day/week's run."
 
 ## 📸 Demo Walkthrough
 
@@ -130,3 +149,5 @@ Describe your app in numbered steps so a reader can follow along without watchin
 5. <!-- Add more steps as needed -->
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+
+## Testting PawPal+

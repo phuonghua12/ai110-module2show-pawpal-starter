@@ -460,3 +460,157 @@ def test_explain_reports_scheduled_and_skipped():
     text = sched.explain()
     assert "Keep" in text
     assert "skipped Drop" in text
+
+
+# =========================================================================
+# Required coverage: sorting, recurrence, conflict detection (+ edge cases)
+# =========================================================================
+
+# --- 1. Sorting correctness ---------------------------------------------
+def test_sorting_returns_chronological_order():
+    """Tasks entered out of order come back earliest-time-first."""
+    pet = Pet("Rex", "dog")
+    # Added deliberately shuffled.
+    pet.add_task(Task("Evening", "18:00", priority="high"))
+    pet.add_task(Task("Dawn", "06:15", priority="high"))
+    pet.add_task(Task("Noon", "12:00", priority="high"))
+    owner = Owner("Sam")
+    owner.add_pet(pet)
+    sched = Scheduler(owner)
+
+    times = [t.time for t in sched.sort_by_time()]
+    assert times == ["06:15", "12:00", "18:00"]
+    assert times == sorted(times)  # invariant: fully chronological
+
+
+def test_equal_times_preserve_insertion_order():
+    """Ties on identical times keep insertion order (sort is stable)."""
+    pet = Pet("Rex", "dog")
+    first = Task("First at 8", "08:00", priority="high")
+    second = Task("Second at 8", "08:00", priority="low")
+    pet.add_task(first)
+    pet.add_task(second)
+    owner = Owner("Sam")
+    owner.add_pet(pet)
+    sched = Scheduler(owner)
+
+    ordered = [t.description for t in sched.sort_by_time()]
+    assert ordered == ["First at 8", "Second at 8"]
+
+
+def test_schedule_is_empty_with_no_tasks():
+    """Sorting/planning an owner with no tasks is graceful, not a crash."""
+    sched = Scheduler(Owner("Empty"))
+    assert sched.sort_by_time() == []
+    assert sched.daily_schedule() == []
+    sched.build_plan()
+    assert sched.scheduled_tasks == []
+    assert sched.find_conflicts() == []
+
+
+# --- 2. Recurrence logic -------------------------------------------------
+def test_completing_daily_task_creates_next_day_task():
+    """Marking a DAILY task complete spawns a fresh task for the next day.
+
+    Tasks carry a time-of-day but no calendar date, so 'the next day's run'
+    is represented by a new, incomplete copy at the same time.
+    """
+    pet = Pet("Rex", "dog")
+    walk = Task("Walk", "08:00", duration_minutes=30, priority="high",
+                frequency="daily")
+    pet.add_task(walk)
+    assert len(pet.tasks) == 1
+
+    walk.mark_complete()
+
+    assert len(pet.tasks) == 2                 # original + next day's run
+    nxt = pet.tasks[1]
+    assert nxt is not walk                     # a genuinely new task
+    assert nxt.completed is False              # next day starts not-done
+    assert walk.completed is True              # today's run is done
+    assert (nxt.description, nxt.time, nxt.frequency) == ("Walk", "08:00", "daily")
+
+
+def test_completing_monthly_task_creates_no_next_task():
+    """Non-recurring (monthly) tasks do not auto-spawn a follow-up."""
+    pet = Pet("Rex", "dog")
+    vet = Task("Vet", "09:00", priority="high", frequency="monthly")
+    pet.add_task(vet)
+
+    vet.mark_complete()
+    assert len(pet.tasks) == 1
+
+
+# --- 3. Conflict detection ----------------------------------------------
+def test_conflict_detection_flags_duplicate_times():
+    """Two tasks at the SAME time are flagged as a conflict."""
+    pet = Pet("Rex", "dog")
+    a = Task("Walk", "08:00", duration_minutes=30, priority="high")
+    b = Task("Feed", "08:00", duration_minutes=10, priority="high")
+    pet.add_task(a)
+    pet.add_task(b)
+    owner = Owner("Sam")
+    owner.add_pet(pet)
+    sched = Scheduler(owner)
+
+    conflicts = sched.find_conflicts()
+    assert len(conflicts) == 1
+    pair = {conflicts[0][0].description, conflicts[0][1].description}
+    assert pair == {"Walk", "Feed"}
+    # and it shows up in the human-readable warning
+    assert "overlaps" in sched.conflict_warning()
+
+
+def test_three_way_overlap_reports_all_real_pairs():
+    """A long task overlapping two shorter ones yields exactly the real pairs.
+
+    Guards the early-`break` optimization in find_conflicts(): 'Mid' and 'Late'
+    do NOT overlap each other, so only (Long, Mid) and (Long, Late) are real.
+    """
+    pet = Pet("Rex", "dog")
+    pet.add_task(Task("Long", "08:00", duration_minutes=60, priority="high"))  # 08:00–09:00
+    pet.add_task(Task("Mid", "08:10", duration_minutes=5, priority="high"))    # 08:10–08:15
+    pet.add_task(Task("Late", "08:50", duration_minutes=5, priority="high"))   # 08:50–08:55
+    owner = Owner("Sam")
+    owner.add_pet(pet)
+    sched = Scheduler(owner)
+
+    pairs = {(a.description, b.description) for a, b in sched.find_conflicts()}
+    assert pairs == {("Long", "Mid"), ("Long", "Late")}
+
+
+def test_spawned_next_occurrence_does_not_conflict_with_parent():
+    """Completing a daily task must not create a conflict with its own successor.
+
+    The successor sits at the same time as the just-completed task, but
+    find_conflicts() ignores completed tasks, so no false clash appears.
+    """
+    pet = Pet("Rex", "dog")
+    walk = Task("Walk", "08:00", duration_minutes=30, priority="high", frequency="daily")
+    pet.add_task(walk)
+    owner = Owner("Sam")
+    owner.add_pet(pet)
+    sched = Scheduler(owner)
+
+    walk.mark_complete()  # spawns an 08:00 successor
+    assert len(pet.tasks) == 2
+    assert sched.find_conflicts() == []  # completed parent is not a competitor
+
+
+def test_explain_raises_on_bad_time_string():
+    """DOCUMENTS a known inconsistency: explain() crashes on a bad time.
+
+    conflict_warning() defends against unparseable times, but explain() calls
+    find_conflicts() -> end_dt(), which raises ValueError. If explain() is ever
+    hardened the same way, flip this to assert a graceful message instead.
+    """
+    pet = Pet("Rex", "dog")
+    pet.add_task(Task("Good", "08:00", duration_minutes=30, priority="high"))
+    pet.add_task(Task("Bad", "25:99", duration_minutes=10, priority="high"))
+    owner = Owner("Sam", available_minutes=120)
+    owner.add_pet(pet)
+    sched = Scheduler(owner)
+
+    sched.build_plan()  # fine: sorts by time string, never parses
+    with pytest.raises(ValueError):
+        sched.explain()  # find_conflicts() forces the parse and blows up
