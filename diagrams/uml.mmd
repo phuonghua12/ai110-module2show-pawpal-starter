@@ -1,15 +1,36 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
+    %% PawPal+ — pet care planning assistant (4-class design)
+    %% Owner, Pet, Task are data classes.
+    %% Scheduler holds the logic AND the resulting schedule.
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Owner {
+        +str name
+        +int available_minutes
+        +__str__() str
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        +str name
+        +str species
+        +__str__() str
     }
 
-    ClassName --> AnotherClass : relationship
+    class Task {
+        +str title
+        +int duration_minutes
+        +str priority
+        +__repr__() str
+    }
+
+    class Scheduler {
+        +list~Task~ scheduled_tasks
+        +int total_minutes
+        +build_plan(tasks, available_minutes) list~Task~
+        +explain() str
+        -_sort_tasks(tasks) list
+        -_fits(task, remaining) bool
+    }
+
+    Owner "1" o-- "*" Pet : owns
+    Scheduler ..> Task : schedules
+    Scheduler "1" o-- "*" Task : holds in schedule
