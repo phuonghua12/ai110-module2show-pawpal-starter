@@ -1,39 +1,58 @@
 classDiagram
     %% PawPal+ — pet care planning assistant (4-class design)
-    %% Owner, Pet, Task are data classes.
-    %% Scheduler holds the logic AND the resulting schedule.
+    %% Task and Pet and Owner are data classes; Scheduler holds the logic.
+    %% Tasks belong to Pets; an Owner has many Pets; the Scheduler reads
+    %% through the Owner to organize and plan all tasks.
 
-    class Owner {
-        +str name
-        +int available_minutes
-        +list~Pet~ pets
+    class Task {
+        +str description
+        +str time
+        +int duration_minutes
+        +str priority
+        +str frequency
+        +bool completed
+        +mark_complete()
+        +mark_incomplete()
         +__str__() str
     }
 
     class Pet {
         +str name
         +str species
+        +list~Task~ tasks
+        +add_task(task)
+        +remove_task(task)
         +__str__() str
     }
 
-    class Task {
-        +str title
-        +int duration_minutes
-        +str priority
-        +__repr__() str
+    class Owner {
+        +str name
+        +list~Pet~ pets
+        +int available_minutes
+        +add_pet(pet)
+        +remove_pet(pet)
+        +all_tasks() list~Task~
+        +__str__() str
     }
 
     class Scheduler {
+        +Owner owner
         +list~Task~ scheduled_tasks
         +list~Task~ skipped_tasks
         +int total_minutes
-        +build_plan(owner, tasks) list~Task~
+        +all_tasks() list~Task~
+        +tasks_for_pet(pet) list~Task~
+        +daily_schedule() list~Task~
+        +tasks_by_frequency(frequency) list~Task~
+        +pending_tasks() list~Task~
+        +completed_tasks() list~Task~
+        +build_plan(available_minutes) list~Task~
         +explain() str
-        -_sort_tasks(tasks) list
+        +reset_daily_tasks()
+        +summary() str
         -_fits(task, remaining) bool
     }
 
     Owner "1" o-- "*" Pet : owns
-    Scheduler ..> Owner : reads constraints
-    Scheduler ..> Task : schedules
-    Scheduler "1" o-- "*" Task : holds in schedule
+    Pet "1" o-- "*" Task : has
+    Scheduler --> Owner : reads

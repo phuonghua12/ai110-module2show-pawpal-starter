@@ -31,7 +31,15 @@ Yes. Reviewing the skeleton against my design surfaced a few gaps, and I made th
 
 - Changed `build_plan(tasks, available_minutes)` to `build_plan(owner, tasks)`. The time budget is really the owner's constraint, so passing the `Owner` keeps the constraint attached to the object that owns it instead of relying on a loose number matching up.
 
-Still open by choice: tasks are not yet linked to a specific `Pet` (single-pet assumption for now), and there are no per-task clock start times.
+Later I made a larger restructuring so the model handles multiple pets properly:
+
+- Moved tasks *inside* `Pet`. Instead of loose tasks passed around, each `Pet` now owns its `tasks` list, `Owner` holds a list of `Pet`s, and the `Scheduler` reaches tasks through `owner.all_tasks()`. This lets one owner manage several pets without tasks becoming ambiguous. `build_plan` now reads the budget from the owner directly (`build_plan(available_minutes=None)` defaulting to `owner.available_minutes`).
+
+- Added `frequency` and `completed` to `Task`, plus `mark_complete()` / `mark_incomplete()` and Scheduler methods (`daily_schedule`, `tasks_by_frequency`, `pending_tasks`, `reset_daily_tasks`). This turns it from a one-shot planner into something that tracks recurring care day to day.
+
+- Briefly dropped, then re-added, `duration_minutes` and `priority`. When I restructured around frequency/completion I lost the time-budget planning, which the project requires ("duration + priority at minimum"). I added them back and kept both feature sets: the organizing methods (by frequency/completion) and the constrained `build_plan` (by priority within a time budget).
+
+Now that tasks live on pets, the earlier "single-pet assumption" no longer applies. Still open by choice: tasks have a time-of-day but no explicit calendar date, so recurring frequencies aren't expanded across real dates yet.
 
 ---
 
@@ -40,12 +48,22 @@ Still open by choice: tasks are not yet linked to a specific `Pet` (single-pet a
 **a. Constraints and priorities**
 
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
+
+The scheduler considers two constraints: the owner's available time for the day (`available_minutes`) and each task's `priority` (high/medium/low). `build_plan` sorts pending tasks by priority first (ties broken by time of day), then greedily takes each task while it still fits in the remaining time. It also respects completion status — completed tasks aren't re-planned.
+
 - How did you decide which constraints mattered most?
+
+Priority matters most. A busy owner cares more about the important task getting done than about filling every free minute, so the scheduler always tries the highest-priority tasks first and only skips a task when there genuinely isn't time.
 
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+
+It uses a greedy, priority-first strategy rather than trying to maximize the number of tasks completed. Because it commits to high-priority tasks first, it can leave time unused: e.g. with 60 minutes, it schedules a 30-min high task and a 5-min high task (35 min used), then skips a 40-min medium task even though 25 minutes remain — those 25 minutes go unused because the next task doesn't fit.
+
 - Why is that tradeoff reasonable for this scenario?
+
+For pet care, doing the important things (a walk, medication) matters more than squeezing in the most tasks. A greedy priority-first plan is also simple to understand and explain to the owner, which fits the goal of the app explaining *why* it chose the plan. A "maximize tasks" approach (a knapsack solve) would be more optimal but harder to justify and overkill for a daily care list.
 
 ---
 
